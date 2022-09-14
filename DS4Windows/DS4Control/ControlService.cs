@@ -13,6 +13,8 @@ using SharpOSC;
 using static DS4Windows.Global;
 using DS4WinWPF.DS4Control;
 using DS4Windows.DS4Control;
+using Nefarius.ViGEm.Client.Targets.DualShock4;
+using Nefarius.Utilities.DeviceManagement.PnP;
 
 namespace DS4Windows
 {
@@ -239,7 +241,6 @@ namespace DS4Windows
             deviceOptions = Global.DeviceOptions;
 
             DS4Devices.RequestElevation += DS4Devices_RequestElevation;
-            DS4Devices.checkVirtualFunc = CheckForVirtualDevice;
             DS4Devices.PrepareDS4Init = PrepareDS4DeviceInit;
             DS4Devices.PostDS4Init = PostDS4DeviceInit;
             DS4Devices.PreparePendingDevice = CheckForSupportedDevice;
@@ -498,22 +499,8 @@ namespace DS4Windows
             // Does nothing now
         }
 
-        public CheckVirtualInfo CheckForVirtualDevice(string deviceInstanceId)
-        {
-            string temp = Global.GetDeviceProperty(deviceInstanceId,
-                NativeMethods.DEVPKEY_Device_UINumber);
-
-            CheckVirtualInfo info = new CheckVirtualInfo()
-            {
-                PropertyValue = temp,
-                DeviceInstanceId = deviceInstanceId,
-            };
-            return info;
-        }
-
         public void ShutDown()
         {
-            DS4Devices.checkVirtualFunc = null;
             outputslotMan.ShutDown();
             OutputSlotPersist.WriteConfig(outputslotMan);
 
@@ -551,7 +538,7 @@ namespace DS4Windows
             catch { }
         }
 
-        public void CheckHidHidePresence()
+        public void CheckHidHidePresence(string ExePath = "", bool AddExe = true) // Default value for D4W Startup
         {
             if (Global.hidHideInstalled)
             {
@@ -562,12 +549,15 @@ namespace DS4Windows
                     {
                         return;
                     }
-
+                    // Catch Blank Values and initialize for Startup. Also catches empty Values.
+                    // Also Catches Empty values in auto-profiler, and defaults to trying to re-add D4W. Will fail harmlessly later.
+                    if (ExePath == "") { ExePath = Global.exelocation; AddExe = true; } 
+                    
                     List<string> dosPaths = hidHideDevice.GetWhitelist();
 
                     int maxPathCheckLength = 512;
                     StringBuilder sb = new StringBuilder(maxPathCheckLength);
-                    string driveLetter = Path.GetPathRoot(Global.exelocation).Replace("\\", "");
+                    string driveLetter = Path.GetPathRoot(ExePath).Replace("\\", "");
                     uint _ = NativeMethods.QueryDosDevice(driveLetter, sb, maxPathCheckLength);
                     //int error = Marshal.GetLastWin32Error();
 
@@ -578,15 +568,21 @@ namespace DS4Windows
                         dosDrivePath = dosDrivePath.Remove(0, 4);
                     }
 
-                    string partial = Global.exelocation.Replace(driveLetter, "");
+                    string partial = ExePath.Replace(driveLetter, "");
                     // Need to trim starting '\\' from path2 or Path.Combine will
                     // treat it as an absolute path and only return path2
                     string realPath = Path.Combine(dosDrivePath, partial.TrimStart('\\'));
                     bool exists = dosPaths.Contains(realPath);
-                    if (!exists)
+                    if (!exists && AddExe)
                     {
-                        LogDebug("DS4Windows not found in HidHide whitelist. Adding DS4Windows to list");
+                        LogDebug("Exe not found in HidHide whitelist. Adding Exe to list");
                         dosPaths.Add(realPath);
+                        hidHideDevice.SetWhitelist(dosPaths);
+                    }
+                    if (exists && !AddExe)
+                    {
+                        LogDebug("Exe found in HidHide whitelist. Removing Exe from list");
+                        dosPaths.Remove(realPath);
                         hidHideDevice.SetWhitelist(dosPaths);
                     }
                 }
@@ -639,7 +635,7 @@ namespace DS4Windows
             bool result = false;
             if (dev != null && hidDeviceHidingEnabled)
             {
-                string deviceInstanceId = DS4Devices.devicePathToInstanceId(dev.HidDevice.DevicePath);
+                string deviceInstanceId = PnPDevice.GetInstanceIdFromInterfaceId(dev.HidDevice.DevicePath);
                 if (Global.hidHideInstalled)
                 {
                     result = Global.CheckHidHideAffectedStatus(deviceInstanceId,
@@ -971,81 +967,205 @@ namespace DS4Windows
                 tempXbox.cont.FeedbackReceived += p;
                 tempXbox.forceFeedbacksDict.Add(index, p);
             }
+            else if (contType == OutContType.DS4)
+            {
+                DS4OutDevice tempDS4 = outDevice as DS4OutDevice;
+                if (tempDS4.CanUseAwaitOutputBuffer)
+                {
+                    DS4OutDeviceExt.ReceivedOutBufferHandler processOutBuffAction = (DS4OutDeviceExt sender, byte[] reportData) =>
+                    {
+                        /*
+                        //DS4OutputBufferData outputData = new DS4OutputBufferData();
+                        DS4OutputBufferData outputData =
+                            DS4OutDeviceExtras.ConvertOutputBufferArrayToStruct(reportData);
+
+                        bool useRumble = false; bool useLight = false;
+                        byte flashOn = 0; byte flashOff = 0;
+                        DS4Color? color = null;
+
+                        //Trace.WriteLine(string.Join(" ", reportData));
+
+                        if ((outputData.featureFlags & DS4OutDevice.RUMBLE_FEATURE_FLAG) != 0)
+                        {
+                            useRumble = true;
+                            device.setRumble(outputData.rightFastRumble, outputData.leftSlowRumble);
+                            //SetDevRumble(device, devour[4], devour[5], devIndex);
+                        }
+
+                        if ((outputData.featureFlags & DS4OutDevice.LIGHTBAR_FEATURE_FLAG) != 0)
+                        {
+                            useLight = true;
+                            color = new DS4Color(outputData.lightbarRedColor,
+                                outputData.lightbarGreenColor,
+                                outputData.lightbarBlueColor);
+                        }
+                        else
+                        {
+                            color = device.LightBarColor;
+                        }
+
+                        if ((outputData.featureFlags & DS4OutDevice.FLASH_FEATURE_FLAG) != 0)
+                        {
+                            useLight = true;
+                            flashOn = outputData.flashOnDuration;
+                            flashOff = outputData.flashOffDuration;
+                        }
+                        else
+                        {
+                            ref DS4LightbarState currentLight =
+                                ref device.GetLightbarStateRef();
+
+                            flashOn = currentLight.LightBarFlashDurationOn;
+                            flashOff = currentLight.LightBarFlashDurationOff;
+                        }
+
+                        if (useLight)
+                        {
+                            DS4LightbarState lightState = new DS4LightbarState
+                            {
+                                LightBarColor = (DS4Color)color,
+                                LightBarFlashDurationOn = flashOn,
+                                LightBarFlashDurationOff = flashOff,
+                            };
+                            device.SetLightbarState(ref lightState);
+                        }
+                        //*/
+
+                        //*
+                        unchecked
+                        {
+                            bool useRumble = false; bool useLight = false;
+                            byte flashOn = 0; byte flashOff = 0;
+                            DS4Color? color = null;
+                            if ((reportData[1] & DS4OutDevice.RUMBLE_FEATURE_FLAG) != 0)
+                            {
+                                useRumble = true;
+                                device.setRumble(reportData[4], reportData[5]);
+                                //SetDevRumble(device, devour[4], devour[5], devIndex);
+                            }
+
+                            if ((reportData[1] & DS4OutDevice.LIGHTBAR_FEATURE_FLAG) != 0)
+                            {
+                                useLight = true;
+                                color = new DS4Color(reportData[6],
+                                    reportData[7],
+                                    reportData[8]);
+                            }
+                            else
+                            {
+                                color = device.LightBarColor;
+                            }
+
+                            if ((reportData[1] & DS4OutDevice.FLASH_FEATURE_FLAG) != 0)
+                            {
+                                useLight = true;
+                                flashOn = reportData[9];
+                                flashOff = reportData[10];
+                            }
+                            else
+                            {
+                                ref DS4LightbarState currentLight =
+                                    ref device.GetLightbarStateRef();
+
+                                flashOn = currentLight.LightBarFlashDurationOn;
+                                flashOff = currentLight.LightBarFlashDurationOff;
+                            }
+
+                            if (useLight)
+                            {
+                                DS4LightbarState lightState = new DS4LightbarState
+                                {
+                                    LightBarColor = (DS4Color)color,
+                                    LightBarFlashDurationOn = flashOn,
+                                    LightBarFlashDurationOff = flashOff,
+                                };
+                                device.SetLightbarState(ref lightState);
+                            }
+                        }
+                        //*/
+                    };
+
+                    DS4OutDeviceExt tempDS4Ext = tempDS4 as DS4OutDeviceExt;
+                    tempDS4Ext.ReceivedOutBuffer += processOutBuffAction;
+                    tempDS4Ext.outBufferFeedbacksDict.TryAdd(index, processOutBuffAction);
+                    tempDS4Ext.StartOutputBufferThread();
+                }
+            }
             //else if (contType == OutContType.DS4)
             //{
             //    DS4OutDevice tempDS4 = outDevice as DS4OutDevice;
             //    LightbarSettingInfo deviceLightbarSettingsInfo = Global.LightbarSettingsInfo[devIndex];
 
-            //    Nefarius.ViGEm.Client.Targets.DualShock4FeedbackReceivedEventHandler p = (sender, args) =>
-            //    {
-            //        bool useRumble = false; bool useLight = false;
-            //        byte largeMotor = args.LargeMotor;
-            //        byte smallMotor = args.SmallMotor;
-            //        //SetDevRumble(device, largeMotor, smallMotor, devIndex);
-            //        DS4Color color = new DS4Color(args.LightbarColor.Red,
-            //                args.LightbarColor.Green,
-            //                args.LightbarColor.Blue);
+                //    Nefarius.ViGEm.Client.Targets.DualShock4FeedbackReceivedEventHandler p = (sender, args) =>
+                //    {
+                //        bool useRumble = false; bool useLight = false;
+                //        byte largeMotor = args.LargeMotor;
+                //        byte smallMotor = args.SmallMotor;
+                //        //SetDevRumble(device, largeMotor, smallMotor, devIndex);
+                //        DS4Color color = new DS4Color(args.LightbarColor.Red,
+                //                args.LightbarColor.Green,
+                //                args.LightbarColor.Blue);
 
-            //        //Console.WriteLine("IN EVENT");
-            //        //Console.WriteLine("Rumble ({0}, {1}) | Light ({2}, {3}, {4}) {5}",
-            //        //    largeMotor, smallMotor, color.red, color.green, color.blue, DateTime.Now.ToString("hh:mm:ss.FFFF"));
+                //        //Console.WriteLine("IN EVENT");
+                //        //Console.WriteLine("Rumble ({0}, {1}) | Light ({2}, {3}, {4}) {5}",
+                //        //    largeMotor, smallMotor, color.red, color.green, color.blue, DateTime.Now.ToString("hh:mm:ss.FFFF"));
 
-            //        if (largeMotor != 0 || smallMotor != 0)
-            //        {
-            //            useRumble = true;
-            //        }
+                //        if (largeMotor != 0 || smallMotor != 0)
+                //        {
+                //            useRumble = true;
+                //        }
 
-            //        // Let games to control lightbar only when the mode is Passthru (otherwise DS4Windows controls the light)
-            //        if (deviceLightbarSettingsInfo.Mode == LightbarMode.Passthru && (color.red != 0 || color.green != 0 || color.blue != 0))
-            //        {
-            //            useLight = true;
-            //        }
+                //        // Let games to control lightbar only when the mode is Passthru (otherwise DS4Windows controls the light)
+                //        if (deviceLightbarSettingsInfo.Mode == LightbarMode.Passthru && (color.red != 0 || color.green != 0 || color.blue != 0))
+                //        {
+                //            useLight = true;
+                //        }
 
-            //        if (!useRumble && !useLight)
-            //        {
-            //            //Console.WriteLine("Fallback");
-            //            if (device.LeftHeavySlowRumble != 0 || device.RightLightFastRumble != 0)
-            //            {
-            //                useRumble = true;
-            //            }
-            //            else if (deviceLightbarSettingsInfo.Mode == LightbarMode.Passthru &&
-            //                (device.LightBarColor.red != 0 ||
-            //                device.LightBarColor.green != 0 ||
-            //                device.LightBarColor.blue != 0))
-            //            {
-            //                useLight = true;
-            //            }
-            //        }
+                //        if (!useRumble && !useLight)
+                //        {
+                //            //Console.WriteLine("Fallback");
+                //            if (device.LeftHeavySlowRumble != 0 || device.RightLightFastRumble != 0)
+                //            {
+                //                useRumble = true;
+                //            }
+                //            else if (deviceLightbarSettingsInfo.Mode == LightbarMode.Passthru &&
+                //                (device.LightBarColor.red != 0 ||
+                //                device.LightBarColor.green != 0 ||
+                //                device.LightBarColor.blue != 0))
+                //            {
+                //                useLight = true;
+                //            }
+                //        }
 
-            //        if (useRumble)
-            //        {
-            //            //Console.WriteLine("Perform rumble");
-            //            SetDevRumble(device, largeMotor, smallMotor, devIndex);
-            //        }
+                //        if (useRumble)
+                //        {
+                //            //Console.WriteLine("Perform rumble");
+                //            SetDevRumble(device, largeMotor, smallMotor, devIndex);
+                //        }
 
-            //        if (useLight)
-            //        {
-            //            //Console.WriteLine("Change lightbar color");
-            //            /*DS4HapticState haptics = new DS4HapticState
-            //            {
-            //                LightBarColor = color,
-            //            };
-            //            device.SetHapticState(ref haptics);
-            //            */
+                //        if (useLight)
+                //        {
+                //            //Console.WriteLine("Change lightbar color");
+                //            /*DS4HapticState haptics = new DS4HapticState
+                //            {
+                //                LightBarColor = color,
+                //            };
+                //            device.SetHapticState(ref haptics);
+                //            */
 
-            //            DS4LightbarState lightState = new DS4LightbarState
-            //            {
-            //                LightBarColor = color,
-            //            };
-            //            device.SetLightbarState(ref lightState);
-            //        }
+                //            DS4LightbarState lightState = new DS4LightbarState
+                //            {
+                //                LightBarColor = color,
+                //            };
+                //            device.SetLightbarState(ref lightState);
+                //        }
 
-            //        //Console.WriteLine();
-            //    };
+                //        //Console.WriteLine();
+                //    };
 
-            //    tempDS4.cont.FeedbackReceived += p;
-            //    tempDS4.forceFeedbacksDict.Add(index, p);
-            //}
+                //    tempDS4.cont.FeedbackReceived += p;
+                //    tempDS4.forceFeedbacksDict.Add(index, p);
+                //}
         }
 
         public void RemoveOutFeedback(OutContType contType, OutputDevice outDevice, int inIdx)
@@ -1056,6 +1176,11 @@ namespace DS4Windows
                 tempXbox.RemoveFeedback(inIdx);
                 //tempXbox.cont.FeedbackReceived -= tempXbox.forceFeedbackCall;
                 //tempXbox.forceFeedbackCall = null;
+            }
+            else if (contType == OutContType.DS4)
+            {
+                DS4OutDevice tempDS4 = outDevice as DS4OutDevice;
+                tempDS4.RemoveFeedback(inIdx);
             }
             //else if (contType == OutContType.DS4)
             //{
