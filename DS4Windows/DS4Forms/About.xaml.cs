@@ -9,8 +9,8 @@ public partial class About : Window
     {
         InitializeComponent();
 
-        string version = Global.exeversion;
-        headerLb.Content += version + ")";
+        string version = $"{Global.exeversion})";
+        headerLb.Content += version;
     }
 
     private void ChangeLogLink_Click(object sender, RoutedEventArgs e)
@@ -111,6 +111,11 @@ public partial class About : Window
     private void VJoyInterfaceLink_Click(object sender, RoutedEventArgs e)
     {
         Util.StartProcessHelper("https://github.com/shauleiz/vJoy/tree/master/apps/common/vJoyInterfaceCS");
+    }
+
+    private void DeviceManagementLink_Click(object sender, RoutedEventArgs e) 
+    {
+        Util.StartProcessHelper("https://github.com/nefarius/Nefarius.Utilities.DeviceManagement");
     }
 }
 

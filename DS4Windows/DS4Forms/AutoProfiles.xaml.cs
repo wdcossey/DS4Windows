@@ -300,6 +300,7 @@ public partial class AutoProfiles : UserControl
         if (autoProfVM.SelectedItem != null)
         {
             editControlsPanel.DataContext = null;
+            AddExeToHIDHideWhenSaving(autoProfVM.SelectedItem.Path, false);// set to False, to remove the EXE from HIDHide
             autoProfVM.RemoveAutoProfileEntry(autoProfVM.SelectedItem);
             autoProfVM.AutoProfileHolder.Save(DS4Windows.Global.appdatapath + @"\Auto Profiles.xml");
             autoProfVM.SelectedItem = null;
@@ -318,8 +319,9 @@ public partial class AutoProfiles : UserControl
             {
                 autoProfVM.PersistAutoProfileEntry(autoProfVM.SelectedItem);
             }
-
-            autoProfVM.AutoProfileHolder.Save(DS4Windows.Global.appdatapath + @"\Auto Profiles.xml");
+            
+            AddExeToHIDHideWhenSaving(autoProfVM.SelectedItem.Path, autoProfVM.SelectedItem.Turnoff);
+            autoProfVM.AutoProfileHolder.Save(Global.appdatapath + @"\Auto Profiles.xml");
         }
     }
 
@@ -350,8 +352,16 @@ public partial class AutoProfiles : UserControl
     {
         if (autoProfVM.SelectedItem != null && sender != null)
         {
-            if(autoProfVM.MoveItemUpDown(autoProfVM.SelectedItem, ((sender as MenuItem).Name == "MoveUp") ? -1 : 1))
+            if (autoProfVM.MoveItemUpDown(autoProfVM.SelectedItem, ((sender as MenuItem).Name == "MoveUp") ? -1 : 1))
                 autoProfVM.AutoProfileHolder.Save(DS4Windows.Global.appdatapath + @"\Auto Profiles.xml");
+        }
+    }
+
+    private void AddExeToHIDHideWhenSaving(string exePath, bool addExe)
+    {
+        if (exePath.Substring((exePath.Length)-4, 4) == ".exe") //Filter out autoprofiles that do not lead to EXEs.
+        {
+            App.rootHub.CheckHidHidePresence(exePath, addExe);
         }
     }
 }
