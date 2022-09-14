@@ -1,0 +1,1 @@
+﻿global using DS4Windows.Native;

@@ -1,90 +1,77 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using DS4WinWPF.DS4Control;
 using DS4WinWPF.DS4Forms.ViewModels.Util;
 
-namespace DS4WinWPF.DS4Forms.ViewModels
+namespace DS4WinWPF.DS4Forms.ViewModels;
+
+public class PresetOptionViewModel
 {
-    public class PresetOptionViewModel
+    private int _presetIndex;
+    private PresetOption.OutputContChoice _controllerChoice =
+        PresetOption.OutputContChoice.Xbox360;
+
+    public int PresetIndex
     {
-        private int presetIndex;
-        private PresetOption.OutputContChoice controllerChoice =
-            PresetOption.OutputContChoice.Xbox360;
-
-        public int PresetIndex
+        get => _presetIndex;
+        set
         {
-            get => presetIndex;
-            set
+            if (_presetIndex == value) return;
+            _presetIndex = value;
+            PresetIndexChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+    public event EventHandler PresetIndexChanged;
+
+    private readonly List<PresetOption> _presetList;
+    public List<PresetOption> PresetsList => _presetList;
+
+    public string PresetDescription => _presetList[_presetIndex].Description;
+        
+    public event EventHandler PresetDescriptionChanged;
+
+    public bool PresetDisplayOutputCont => _presetList[_presetIndex].OutputControllerChoice;
+        
+    public event EventHandler PresetDisplayOutputContChanged;
+
+    public PresetOption.OutputContChoice ControllerChoice
+    {
+        get => _controllerChoice;
+        set => _controllerChoice = value;
+    }
+
+    private List<EnumChoiceSelection<PresetOption.OutputContChoice>> outputChoices =
+        new()
+        {
+            new EnumChoiceSelection<PresetOption.OutputContChoice>("Xbox 360", PresetOption.OutputContChoice.Xbox360),
+            new EnumChoiceSelection<PresetOption.OutputContChoice>("DualShock 4", PresetOption.OutputContChoice.DualShock4),
+        };
+
+    public List<EnumChoiceSelection<PresetOption.OutputContChoice>> OutputChoices { get => outputChoices; }
+
+    public PresetOptionViewModel(IEnumerable<PresetOption> presetOptions)
+    {
+        _presetList = new List<PresetOption>(presetOptions);
+        PresetIndexChanged += PresetOptionViewModel_PresetIndexChanged;
+    }
+
+    private void PresetOptionViewModel_PresetIndexChanged(object sender, EventArgs e)
+    {
+        PresetDescriptionChanged?.Invoke(this, EventArgs.Empty);
+        PresetDisplayOutputContChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void ApplyPreset(int index)
+    {
+        if (_presetIndex >= 0)
+        {
+            var current = _presetList[_presetIndex];
+            if (current.OutputControllerChoice &&
+                _controllerChoice != PresetOption.OutputContChoice.None)
             {
-                if (presetIndex == value) return;
-                presetIndex = value;
-                PresetIndexChanged?.Invoke(this, EventArgs.Empty);
+                current.OutputCont = _controllerChoice;
             }
-        }
-        public event EventHandler PresetIndexChanged;
 
-        private List<PresetOption> presetList;
-        public List<PresetOption> PresetsList { get => presetList; }
-
-        public string PresetDescription
-        {
-            get => presetList[presetIndex].Description;
-        }
-        public event EventHandler PresetDescriptionChanged;
-
-        public bool PresetDisplayOutputCont
-        {
-            get => presetList[presetIndex].OutputControllerChoice;
-        }
-        public event EventHandler PresetDisplayOutputContChanged;
-
-        public PresetOption.OutputContChoice ControllerChoice
-        {
-            get => controllerChoice;
-            set => controllerChoice = value;
-        }
-
-        private List<EnumChoiceSelection<PresetOption.OutputContChoice>> outputChoices =
-            new List<EnumChoiceSelection<PresetOption.OutputContChoice>>()
-            {
-                new EnumChoiceSelection<PresetOption.OutputContChoice>("Xbox 360", PresetOption.OutputContChoice.Xbox360),
-                new EnumChoiceSelection<PresetOption.OutputContChoice>("DualShock 4", PresetOption.OutputContChoice.DualShock4),
-            };
-
-        public List<EnumChoiceSelection<PresetOption.OutputContChoice>> OutputChoices { get => outputChoices; }
-
-        public PresetOptionViewModel()
-        {
-            presetList = new List<PresetOption>();
-            presetList.Add(new GamepadPreset());
-            presetList.Add(new GamepadGyroCamera());
-            presetList.Add(new MixedPreset());
-            presetList.Add(new MixedGyroMousePreset());
-            presetList.Add(new KBMPreset());
-            presetList.Add(new KBMGyroMouse());
-
-            PresetIndexChanged += PresetOptionViewModel_PresetIndexChanged;
-        }
-
-        private void PresetOptionViewModel_PresetIndexChanged(object sender, EventArgs e)
-        {
-            PresetDescriptionChanged?.Invoke(this, EventArgs.Empty);
-            PresetDisplayOutputContChanged?.Invoke(this, EventArgs.Empty);
-        }
-
-        public void ApplyPreset(int index)
-        {
-            if (presetIndex >= 0)
-            {
-                PresetOption current = presetList[presetIndex];
-                if (current.OutputControllerChoice &&
-                    controllerChoice != PresetOption.OutputContChoice.None)
-                {
-                    current.OutputCont = controllerChoice;
-                }
-
-                current.ApplyPreset(index);
-            }
+            current.ApplyPreset(index);
         }
     }
 }

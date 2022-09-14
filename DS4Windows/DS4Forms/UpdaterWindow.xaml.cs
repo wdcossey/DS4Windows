@@ -1,63 +1,57 @@
-﻿using DS4WinWPF.DS4Forms.ViewModels;
-using System;
-using System.Windows;
+﻿namespace DS4WinWPF.DS4Forms;
 
-namespace DS4WinWPF.DS4Forms
+/// <summary>
+/// Interaction logic for UpdaterWindow.xaml
+/// </summary>
+public partial class UpdaterWindow : Window
 {
-    /// <summary>
-    /// Interaction logic for UpdaterWindow.xaml
-    /// </summary>
-    public partial class UpdaterWindow : Window
+    public MessageBoxResult Result { get; private set; } = MessageBoxResult.No;
+
+    private readonly UpdaterWindowViewModel _updaterWindowViewModel;
+
+    public UpdaterWindow(UpdaterWindowViewModel updaterWindowViewModel, string newVersion)
     {
-        private MessageBoxResult result = MessageBoxResult.No;
-        public MessageBoxResult Result { get => result; }
+        _updaterWindowViewModel = updaterWindowViewModel;
+        
+        InitializeComponent();
 
-        private UpdaterWindowViewModel updaterWinVM;
+        Title = Localization.DS4Update;
+            
+        captionTextBlock.Text = Localization.DownloadVersion.Replace("*number*", newVersion);
 
-        public UpdaterWindow(string newversion)
-        {
-            InitializeComponent();
+        _updaterWindowViewModel.BlankSkippedVersion();
 
-            Title = Properties.Resources.DS4Update;
-            captionTextBlock.Text = Properties.Resources.DownloadVersion.Replace("*number*",
-                newversion);
-            updaterWinVM = new UpdaterWindowViewModel(newversion);
-            updaterWinVM.BlankSkippedVersion();
+        DataContext = _updaterWindowViewModel;
 
-            DataContext = updaterWinVM;
+        SetupEvents();
 
-            SetupEvents();
+        _updaterWindowViewModel.RetrieveChangelogInfo();
+    }
 
-            updaterWinVM.RetrieveChangelogInfo();
-        }
+    private void SetupEvents()
+    {
+        _updaterWindowViewModel.ChangelogDocumentChanged += UpdaterWindowViewModel_ChangelogDocumentChanged;
+    }
 
-        private void SetupEvents()
-        {
-            updaterWinVM.ChangelogDocumentChanged += UpdaterWinVM_ChangelogDocumentChanged;
-        }
+    private void UpdaterWindowViewModel_ChangelogDocumentChanged(object? sender, EventArgs e) => 
+        richChangelogTxtBox.Document = _updaterWindowViewModel.ChangelogDocument;
 
-        private void UpdaterWinVM_ChangelogDocumentChanged(object sender, EventArgs e)
-        {
-            richChangelogTxtBox.Document = updaterWinVM.ChangelogDocument;
-        }
+    private void YesBtn_Click(object sender, RoutedEventArgs e)
+    {
+        Result = MessageBoxResult.Yes;
+        Close();
+    }
 
-        private void YesBtn_Click(object sender, RoutedEventArgs e)
-        {
-            result = MessageBoxResult.Yes;
-            Close();
-        }
+    private void NoBtn_Click(object sender, RoutedEventArgs e)
+    {
+        Result = MessageBoxResult.No;
+        Close();
+    }
 
-        private void NoBtn_Click(object sender, RoutedEventArgs e)
-        {
-            result = MessageBoxResult.No;
-            Close();
-        }
-
-        private void SkipVersionBtn_Click(object sender, RoutedEventArgs e)
-        {
-            result = MessageBoxResult.No;
-            updaterWinVM.SetSkippedVersion();
-            Close();
-        }
+    private void SkipVersionBtn_Click(object sender, RoutedEventArgs e)
+    {
+        Result = MessageBoxResult.No;
+        _updaterWindowViewModel.SetSkippedVersion();
+        Close();
     }
 }

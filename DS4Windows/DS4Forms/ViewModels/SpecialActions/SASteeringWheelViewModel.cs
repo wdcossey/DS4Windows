@@ -1,52 +1,46 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using DS4Windows;
+﻿using System.Collections.Generic;
 using DS4WinWPF.DS4Forms.ViewModels.Util;
 
-namespace DS4WinWPF.DS4Forms.ViewModels.SpecialActions
+namespace DS4WinWPF.DS4Forms.ViewModels.SpecialActions;
+
+public class SASteeringWheelViewModel : NotifyDataErrorBase
 {
-    public class SASteeringWheelViewModel : NotifyDataErrorBase
+    private double delay;
+    public double Delay { get => delay; set => delay = value; }
+
+    public void LoadAction(SpecialAction action)
     {
-        private double delay;
-        public double Delay { get => delay; set => delay = value; }
+        delay = action.delayTime;
+    }
 
-        public void LoadAction(SpecialAction action)
+    public void SaveAction(SpecialAction action, bool edit = false)
+    {
+        Global.SaveAction(action.name, action.controls, 8, delay.ToString("#.##", Global.configFileDecimalCulture), edit);
+    }
+
+    public override bool IsValid(SpecialAction action)
+    {
+        ClearOldErrors();
+
+        bool valid = true;
+        List<string> delayErrors = new List<string>();
+
+        if (delay < 0 || delay > 60)
         {
-            delay = action.delayTime;
+            delayErrors.Add("Delay out of range");
+            errors["Delay"] = delayErrors;
+            RaiseErrorsChanged("Delay");
         }
 
-        public void SaveAction(SpecialAction action, bool edit = false)
+        return valid;
+    }
+
+    public override void ClearOldErrors()
+    {
+        if (errors.Count > 0)
         {
-            Global.SaveAction(action.name, action.controls, 8, delay.ToString("#.##", Global.configFileDecimalCulture), edit);
-        }
-
-        public override bool IsValid(SpecialAction action)
-        {
-            ClearOldErrors();
-
-            bool valid = true;
-            List<string> delayErrors = new List<string>();
-
-            if (delay < 0 || delay > 60)
-            {
-                delayErrors.Add("Delay out of range");
-                errors["Delay"] = delayErrors;
-                RaiseErrorsChanged("Delay");
-            }
-
-            return valid;
-        }
-
-        public override void ClearOldErrors()
-        {
-            if (errors.Count > 0)
-            {
-                errors.Clear();
-                RaiseErrorsChanged("Delay");
-            }
+            errors.Clear();
+            RaiseErrorsChanged("Delay");
         }
     }
 }

@@ -20,10 +20,11 @@
     <Version>3.1.4</Version>
     <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
-    <Copyright>Copyright © Scarlet.Crush Productions 2012, 2013; InhexSTER, HecticSeptic, electrobrains 2013, 2014; Jays2Kings 2013, 2014, 2015, 2016; Ryochan7 2017-2022</Copyright>
+    <Copyright>Copyright © Scarlet.Crush Productions 2012, 2013; InhexSTER, HecticSeptic, electrobrains 2013, 2014; Jays2Kings 2013, 2014, 2015, 2016; Ryochan7 2017-2022; wdcossey 2022</Copyright>
     <Description>Sony DualShock 4 to Microsoft Xinput controller mapper</Description>
-    <Authors>Ryochan7</Authors>
+    <Authors>Ryochan7, wdcossey</Authors>
     <Company />
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -55,43 +56,19 @@
     <GenerateSerializationAssemblies>Auto</GenerateSerializationAssemblies>
     <PlatformTarget>x86</PlatformTarget>
   </PropertyGroup>
-
-  <ItemGroup>
-    <None Remove="libs\x64\**" Condition="'$(Platform)' != 'x64'" />
-    <None Remove="libs\x86\**" Condition="'$(Platform)' != 'x86'" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="BezierCurveEditor\build.js">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="BezierCurveEditor\index.html">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
+  
   <ItemGroup>
     <PackageReference Include="bloomtom.HttpProgress" Version="2.3.2" />
     <PackageReference Include="DotNetProjects.Extended.Wpf.Toolkit" Version="5.0.103" />
     <PackageReference Include="H.NotifyIcon.Wpf" Version="2.0.60" />
     <PackageReference Include="MdXaml" Version="1.15.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="6.0.0" />
     <PackageReference Include="NLog" Version="5.0.2" />
     <PackageReference Include="Ookii.Dialogs.Wpf" Version="5.0.1" />
     <PackageReference Include="System.Management" Version="6.0.0" />
     <PackageReference Include="TaskScheduler" Version="2.10.1" />
     <PackageReference Include="WPFLocalizeExtension" Version="3.9.4" />
-
-    <Reference Include="Nefarius.ViGEm.Client">
-      <HintPath>..\libs\$(Platform)\Nefarius.ViGEm.Client\Nefarius.ViGEm.Client.dll</HintPath>
-    </Reference>
-
-    <Reference Include="FakerInputWrapper">
-      <HintPath>..\libs\$(Platform)\FakerInputWrapper\FakerInputWrapper.dll</HintPath>
-    </Reference>
-
-    <Reference Include="SharpOSC">
-      <HintPath>..\libs\$(Platform)\SharpOSC\SharpOSC.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup>
@@ -171,29 +148,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="Properties\Resources.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>Resources.resx</DependentUpon>
-    </Compile>
     <Compile Update="Properties\Settings.Designer.cs">
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <AutoGen>True</AutoGen>
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Update="Properties\Resources.resx">
-      <Generator>PublicResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-    <EmbeddedResource Update="Properties\Resources.ja.resx">
-      <DependentUpon>Resources.resx</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Update="Properties\Resources.ru.resx">
-      <DependentUpon>Resources.resx</DependentUpon>
-    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>
@@ -262,10 +221,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="libs\$(Platform)\FakerInputWrapper\FakerInputDll.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>FakerInputDll.dll</Link>
-    </None>
     <None Update="NLog.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -273,10 +228,20 @@
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
+    <None Update="appsettings*.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
     <Folder Remove="extras\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DS4Windows.Core\DS4Windows.Core.csproj" />
+    <ProjectReference Include="..\DS4Windows.Logging\DS4Windows.Logging.csproj" />
+    <ProjectReference Include="..\DS4Windows.Native\DS4Windows.Native.csproj" />
+    <ProjectReference Include="..\DS4Windows.VJoy\DS4Windows.VJoy.csproj" />
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">

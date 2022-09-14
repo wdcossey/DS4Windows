@@ -1,115 +1,116 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Net.Http;
 using System.Windows.Documents;
 using HttpProgress;
 using System.Text.Json;
+using Microsoft.Extensions.Options;
 using MarkdownEngine = MdXaml.Markdown;
 
-namespace DS4WinWPF.DS4Forms.ViewModels
+namespace DS4WinWPF.DS4Forms.ViewModels;
+
+public class ChangelogViewModel
 {
-    public class ChangelogViewModel
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly UpdateOptions _updateOptions;
+        
+    private FlowDocument changelogDocument;
+    public FlowDocument ChangelogDocument
     {
-        private FlowDocument changelogDocument;
-        public FlowDocument ChangelogDocument
+        get => changelogDocument;
+        private set
         {
-            get => changelogDocument;
-            private set
+            if (changelogDocument == value) return;
+            changelogDocument = value;
+            ChangelogDocumentChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+    public event EventHandler ChangelogDocumentChanged;
+
+    public ChangelogViewModel(IHttpClientFactory httpClientFactory, IOptions<UpdateOptions> updateOptions)
+    {
+        _httpClientFactory = httpClientFactory;
+        _updateOptions = updateOptions.Value;
+        BuildTempDocument("Retrieving changelog info.Please wait...");
+    }
+
+    private void BuildTempDocument(string message)
+    {
+        var flow = new FlowDocument();
+        flow.Blocks.Add(new Paragraph(new Run(message)));
+        ChangelogDocument = flow;
+    }
+
+    public async void RetrieveChangelogInfoAsync()
+    {
+        var client = _httpClientFactory.CreateClient("UpdateClient");
+        var filename = Path.Combine(Path.GetTempPath(), "Changelog.min.json");
+        var readFile = false;
+        await using (var downloadStream = new FileStream(filename, FileMode.Create))
+        {
+            try
             {
-                if (changelogDocument == value) return;
-                changelogDocument = value;
-                ChangelogDocumentChanged?.Invoke(this, EventArgs.Empty);
+                var responseMessage = await client.GetAsync(_updateOptions.Self.Changelog, downloadStream).ConfigureAwait(true); 
+                readFile = responseMessage.IsSuccessStatusCode;
             }
-        }
-        public event EventHandler ChangelogDocumentChanged;
-
-        public ChangelogViewModel()
-        {
-            BuildTempDocument("Retrieving changelog info.Please wait...");
+            catch (HttpRequestException) { }
         }
 
-        private void BuildTempDocument(string message)
+        var fileExists = File.Exists(filename);
+        if (fileExists && readFile)
         {
-            FlowDocument flow = new FlowDocument();
-            flow.Blocks.Add(new Paragraph(new Run(message)));
-            ChangelogDocument = flow;
-        }
-
-        public async void RetrieveChangelogInfo()
-        {
-            // Sorry other devs, gonna have to find your own server
-            Uri url = new Uri(UpdaterWindowViewModel.CHANGELOG_URI);
-            string filename = Path.Combine(Path.GetTempPath(), "Changelog.min.json");
-            bool readFile = false;
-            using (var downloadStream = new FileStream(filename, FileMode.Create))
+            var temp = (await File.ReadAllTextAsync(filename)).Trim();
+            try
             {
-                Task<System.Net.Http.HttpResponseMessage> temp = App.requestClient.GetAsync(url.ToString(), downloadStream);
-                try
+                var options = new JsonSerializerOptions()
                 {
-                    await temp.ConfigureAwait(true);
-                    if (temp.Result.IsSuccessStatusCode) readFile = true;
-                }
-                catch (System.Net.Http.HttpRequestException) { }
+                    PropertyNameCaseInsensitive = true,
+                };
+                options.Converters.Add(new DateTimeJsonConverter.DateTimeConverterUsingDateTimeParse());
+                var tempInfo = JsonSerializer.Deserialize<ChangelogInfo>(temp, options);
+                BuildChangelogDocument(tempInfo);
             }
-
-            bool fileExists = File.Exists(filename);
-            if (fileExists && readFile)
-            {
-                string temp = File.ReadAllText(filename).Trim();
-                try
-                {
-                    JsonSerializerOptions options = new JsonSerializerOptions()
-                    {
-                        PropertyNameCaseInsensitive = true,
-                    };
-                    options.Converters.Add(new DateTimeJsonConverter.DateTimeConverterUsingDateTimeParse());
-                    ChangelogInfo tempInfo = JsonSerializer.Deserialize<ChangelogInfo>(temp, options);
-                    BuildChangelogDocument(tempInfo);
-                }
-                catch (JsonException) {}
-            }
-            else if (!readFile)
-            {
-                BuildTempDocument("Failed to retrieve information");
-            }
-
-            if (fileExists)
-            {
-                File.Delete(filename);
-            }
+            catch (JsonException) {}
         }
-
-        private void BuildChangelogDocument(ChangelogInfo tempInfo)
+        else if (!readFile)
         {
-            MarkdownEngine engine = new MarkdownEngine();
-            FlowDocument flow = new FlowDocument();
-            foreach (ChangeVersionInfo versionInfo in tempInfo.Changelog.Versions)
-            {
-                VersionLogLocale tmpLog = versionInfo.ApplicableInfo(DS4Windows.Global.UseLang);
-                if (tmpLog != null)
-                {
-                    Paragraph tmpPar = new Paragraph();
-                    string tmp = tmpLog.Header;
-                    tmpPar.Inlines.Add(new Run(tmp) { Tag = "Header" });
-                    flow.Blocks.Add(tmpPar);
-
-                    tmpPar.Inlines.Add(new LineBreak());
-                    tmpPar.Inlines.Add(new Run(versionInfo.ReleaseDate.ToUniversalTime().ToString("r")) { Tag = "ReleaseDate" });
-
-                    tmpLog.BuildDisplayText();
-
-                    FlowDocument tmpDoc = engine.Transform(tmpLog.DisplayLogText);
-                    flow.Blocks.AddRange(new List<Block>(tmpDoc.Blocks));
-
-                    tmpPar = new Paragraph();
-                    flow.Blocks.Add(tmpPar);
-                }
-            }
-
-            ChangelogDocument = flow;
+            BuildTempDocument("Failed to retrieve information");
         }
+
+        if (fileExists)
+        {
+            File.Delete(filename);
+        }
+    }
+
+    private void BuildChangelogDocument(ChangelogInfo tempInfo)
+    {
+        var engine = new MarkdownEngine();
+        var flow = new FlowDocument();
+        foreach (var versionInfo in tempInfo.Changelog.Versions)
+        {
+            var tmpLog = versionInfo.ApplicableInfo(Global.UseLang);
+                
+            if (tmpLog is null)
+                continue;
+                
+            var tmpPar = new Paragraph();
+            var tmp = tmpLog.Header;
+            tmpPar.Inlines.Add(new Run(tmp) { Tag = "Header" });
+            flow.Blocks.Add(tmpPar);
+
+            tmpPar.Inlines.Add(new LineBreak());
+            tmpPar.Inlines.Add(new Run(versionInfo.ReleaseDate.ToUniversalTime().ToString("r")) { Tag = "ReleaseDate" });
+
+            tmpLog.BuildDisplayText();
+
+            var tmpDoc = engine.Transform(tmpLog.DisplayLogText);
+            flow.Blocks.AddRange(new List<Block>(tmpDoc.Blocks));
+
+            tmpPar = new Paragraph();
+            flow.Blocks.Add(tmpPar);
+        }
+
+        ChangelogDocument = flow;
     }
 }

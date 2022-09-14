@@ -7,7 +7,7 @@
              xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
              xmlns:lex="http://wpflocalizeextension.codeplex.com"
              lex:LocalizeDictionary.DesignCulture=""
-             lex:ResxLocalizationProvider.DefaultAssembly="DS4Windows"
+             lex:ResxLocalizationProvider.DefaultAssembly="DS4Windows.Localization"
              lex:ResxLocalizationProvider.DefaultDictionary="Strings"
              mc:Ignorable="d" 
              d:DesignHeight="550" d:DesignWidth="1000">
@@ -422,7 +422,7 @@
 
                                                 <Label Content="Outer Btn:" Grid.Row="7" Grid.Column="0" />
                                                 <DockPanel Grid.Row="7" Grid.Column="1">
-                                                    <Button Content="Outer Bind" MinWidth="40" Tag="{Binding LSOuterBind, Source={StaticResource controlIndexCheck}}"
+                                                    <Button Content="Outer Bind" MinWidth="40" Tag="{Binding LsOuterBind, Source={StaticResource controlIndexCheck}}"
                                                             Click="StickOuterBindButton_Click"
                                                             Margin="{StaticResource spaceMargin}" ToolTip="{lex:Loc StickOuterBindTooltip}"  DockPanel.Dock="Top" />
                                                     <Label x:Name="lsOuterBindLb" Content="{Binding MappingName,FallbackValue=Unassigned}"
@@ -654,7 +654,7 @@
 
                                                 <Label Content="Outer Btn:" Grid.Row="7" Grid.Column="0" />
                                                 <DockPanel Grid.Row="7" Grid.Column="1">
-                                                    <Button Content="Outer Bind" MinWidth="40" Tag="{Binding RSOuterBind, Source={StaticResource controlIndexCheck}}"
+                                                    <Button Content="Outer Bind" MinWidth="40" Tag="{Binding RsOuterBind, Source={StaticResource controlIndexCheck}}"
                                                         Click="StickOuterBindButton_Click"
                                                         Margin="{StaticResource spaceMargin}" ToolTip="{lex:Loc StickOuterBindTooltip}" DockPanel.Dock="Top" />
                                                     <Label x:Name="rsOuterBindLb" Content="{Binding MappingName,FallbackValue=Unassigned}"

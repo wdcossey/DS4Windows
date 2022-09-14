@@ -1,66 +1,62 @@
-﻿using System.Windows;
-using DS4WinWPF.DS4Forms.ViewModels;
+﻿namespace DS4WinWPF.DS4Forms;
 
-namespace DS4WinWPF.DS4Forms
+/// <summary>
+/// Interaction logic for RenameProfileWindow.xaml
+/// </summary>
+public partial class RenameProfileWindow : Window
 {
-    /// <summary>
-    /// Interaction logic for RenameProfileWindow.xaml
-    /// </summary>
-    public partial class RenameProfileWindow : Window
+    private RenameProfileViewModel renameProfileVM;
+    public RenameProfileViewModel RenameProfileVM
     {
-        private RenameProfileViewModel renameProfileVM;
-        public RenameProfileViewModel RenameProfileVM
-        {
-            get => renameProfileVM;
-        }
+        get => renameProfileVM;
+    }
 
-        public RenameProfileWindow()
-        {
-            InitializeComponent();
+    public RenameProfileWindow()
+    {
+        InitializeComponent();
 
-            renameProfileVM = new RenameProfileViewModel();
-            mainDockPanel.DataContext = renameProfileVM;
-        }
+        renameProfileVM = new RenameProfileViewModel();
+        mainDockPanel.DataContext = renameProfileVM;
+    }
 
-        /// <summary>
-        /// Method used to carry over current name of profile and copy
-        /// it to ViewModel
-        /// </summary>
-        /// <param name="profileName">name of current profile</param>
-        public void ChangeProfileName(string profileName)
-        {
-            renameProfileVM.ProfileName = profileName;
-        }
+    /// <summary>
+    /// Method used to carry over current name of profile and copy
+    /// it to ViewModel
+    /// </summary>
+    /// <param name="profileName">name of current profile</param>
+    public void ChangeProfileName(string profileName)
+    {
+        renameProfileVM.ProfileName = profileName;
+    }
 
-        private void CancelBtn_Click(object sender, RoutedEventArgs e)
-        {
-            DialogResult = false;
-        }
+    private void CancelBtn_Click(object sender, RoutedEventArgs e)
+    {
+        DialogResult = false;
+    }
 
-        private void ConfirmBtn_Click(object sender, RoutedEventArgs e)
+    private void ConfirmBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(renameProfileVM.ProfileName))
         {
-            if (!string.IsNullOrEmpty(renameProfileVM.ProfileName))
+            bool validChars = renameProfileVM.ProfileName.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) == -1;
+            if (validChars)
             {
-                bool validChars = renameProfileVM.ProfileName.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) == -1;
-                if (validChars)
+                bool existingFile = renameProfileVM.ProfileFileExists();
+                if (existingFile)
                 {
-                    bool existingFile = renameProfileVM.ProfileFileExists();
-                    if (existingFile)
-                    {
-                        e.Handled = true;
-                        MessageBox.Show("Profile with name already exists. Please try again.");
-                    }
-                    else
-                    {
-                        DialogResult = true;
-                        Close();
-                    }
+                    e.Handled = true;
+                    MessageBox.Show("Profile with name already exists. Please try again.");
                 }
                 else
                 {
-                    e.Handled = true;
-                    MessageBox.Show("Invalid characters used in filename. Please change text.");
+                    DialogResult = true;
+                    Close();
                 }
+            }
+            else
+            {
+                e.Handled = true;
+                MessageBox.Show("Invalid characters used in filename. Please change text.");
             }
         }
     }

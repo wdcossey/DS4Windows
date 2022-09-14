@@ -1,45 +1,43 @@
-﻿using System;
-using System.Threading;
+﻿using System.Threading;
 
-namespace DS4Windows
+namespace DS4Windows;
+
+public class ReadLocker : IDisposable
 {
-    public class ReadLocker : IDisposable
+    private ReaderWriterLockSlim _lockerInstance;
+
+    public ReadLocker(ReaderWriterLockSlim lockerInstance)
     {
-        private ReaderWriterLockSlim _lockerInstance;
-
-        public ReadLocker(ReaderWriterLockSlim lockerInstance)
-        {
-            _lockerInstance = lockerInstance;
-            _lockerInstance.EnterReadLock();
-        }
-
-        public void Dispose()
-        {
-            _lockerInstance.ExitReadLock();
-            _lockerInstance = null;
-        }
+        _lockerInstance = lockerInstance;
+        _lockerInstance.EnterReadLock();
     }
 
-    public class WriteLocker : IDisposable
+    public void Dispose()
     {
-        private ReaderWriterLockSlim _lockerInstance;
-        private bool IsDisposed => _lockerInstance == null;
+        _lockerInstance.ExitReadLock();
+        _lockerInstance = null;
+    }
+}
 
-        public WriteLocker(ReaderWriterLockSlim lockerInstance)
+public class WriteLocker : IDisposable
+{
+    private ReaderWriterLockSlim _lockerInstance;
+    private bool IsDisposed => _lockerInstance == null;
+
+    public WriteLocker(ReaderWriterLockSlim lockerInstance)
+    {
+        _lockerInstance = lockerInstance;
+        _lockerInstance.EnterWriteLock();
+    }
+
+    public void Dispose()
+    {
+        if (IsDisposed)
         {
-            _lockerInstance = lockerInstance;
-            _lockerInstance.EnterWriteLock();
+            throw new ObjectDisposedException(this.ToString());
         }
 
-        public void Dispose()
-        {
-            if (IsDisposed)
-            {
-                throw new ObjectDisposedException(this.ToString());
-            }
-
-            _lockerInstance.ExitWriteLock();
-            _lockerInstance = null;
-        }
+        _lockerInstance.ExitWriteLock();
+        _lockerInstance = null;
     }
 }

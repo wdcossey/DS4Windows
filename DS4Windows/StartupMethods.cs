@@ -1,187 +1,177 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.TaskScheduler;
 using Task = Microsoft.Win32.TaskScheduler.Task;
 
-namespace DS4WinWPF
+namespace DS4WinWPF;
+
+[System.Security.SuppressUnmanagedCodeSecurity]
+public static class StartupMethods
 {
-    [System.Security.SuppressUnmanagedCodeSecurity]
-    public static class StartupMethods
+    public static string lnkpath = Environment.GetFolderPath(Environment.SpecialFolder.Startup) + "\\DS4Windows.lnk";
+    private static string taskBatPath = Path.Combine(Global.exedirpath, "task.bat");
+
+    public static bool HasStartProgEntry()
     {
-        public static string lnkpath = Environment.GetFolderPath(Environment.SpecialFolder.Startup) + "\\DS4Windows.lnk";
-        private static string taskBatPath = Path.Combine(DS4Windows.Global.exedirpath, "task.bat");
+        // Exception handling should not be needed here. Method handles most cases
+        bool exists = File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.Startup) + "\\DS4Windows.lnk");
+        return exists;
+    }
 
-        public static bool HasStartProgEntry()
-        {
-            // Exception handling should not be needed here. Method handles most cases
-            bool exists = File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.Startup) + "\\DS4Windows.lnk");
-            return exists;
-        }
+    public static bool HasTaskEntry()
+    {
+        TaskService ts = new TaskService();
+        Task tasker = ts.FindTask("RunDS4Windows");
+        return tasker != null;
+    }
 
-        public static bool HasTaskEntry()
+    public static void WriteStartProgEntry()
+    {
+        Type t = Type.GetTypeFromCLSID(new Guid("72C24DD5-D70A-438B-8A42-98424B88AFB8")); // Windows Script Host Shell Object
+        dynamic shell = Activator.CreateInstance(t);
+        try
         {
-            TaskService ts = new TaskService();
-            Task tasker = ts.FindTask("RunDS4Windows");
-            return tasker != null;
-        }
-
-        public static void WriteStartProgEntry()
-        {
-            Type t = Type.GetTypeFromCLSID(new Guid("72C24DD5-D70A-438B-8A42-98424B88AFB8")); // Windows Script Host Shell Object
-            dynamic shell = Activator.CreateInstance(t);
+            var lnk = shell.CreateShortcut(lnkpath);
             try
             {
-                var lnk = shell.CreateShortcut(lnkpath);
-                try
-                {
-                    string app = DS4Windows.Global.exelocation;
-                    lnk.TargetPath = DS4Windows.Global.exelocation;
-                    lnk.Arguments = "-m";
+                string app = Global.exelocation;
+                lnk.TargetPath = Global.exelocation;
+                lnk.Arguments = "-m";
 
-                    //lnk.TargetPath = Assembly.GetExecutingAssembly().Location;
-                    //lnk.Arguments = "-m";
-                    lnk.IconLocation = app.Replace('\\', '/');
-                    lnk.Save();
-                }
-                finally
-                {
-                    Marshal.FinalReleaseComObject(lnk);
-                }
+                //lnk.TargetPath = Assembly.GetExecutingAssembly().Location;
+                //lnk.Arguments = "-m";
+                lnk.IconLocation = app.Replace('\\', '/');
+                lnk.Save();
             }
             finally
             {
-                Marshal.FinalReleaseComObject(shell);
+                Marshal.FinalReleaseComObject(lnk);
             }
         }
-
-        public static void DeleteStartProgEntry()
+        finally
         {
-            if (File.Exists(lnkpath) && !new FileInfo(lnkpath).IsReadOnly)
-            {
-                File.Delete(lnkpath);
-            }
+            Marshal.FinalReleaseComObject(shell);
         }
+    }
 
-        public static void DeleteOldTaskEntry()
+    public static void DeleteStartProgEntry()
+    {
+        if (File.Exists(lnkpath) && !new FileInfo(lnkpath).IsReadOnly)
         {
-            TaskService ts = new TaskService();
-            Task tasker = ts.FindTask("RunDS4Windows");
-            if (tasker != null)
+            File.Delete(lnkpath);
+        }
+    }
+
+    public static void DeleteOldTaskEntry()
+    {
+        TaskService ts = new TaskService();
+        Task tasker = ts.FindTask("RunDS4Windows");
+        if (tasker != null)
+        {
+            foreach(Microsoft.Win32.TaskScheduler.Action act in tasker.Definition.Actions)
             {
-                foreach(Microsoft.Win32.TaskScheduler.Action act in tasker.Definition.Actions)
+                if (act.ActionType == TaskActionType.Execute)
                 {
-                    if (act.ActionType == TaskActionType.Execute)
+                    ExecAction temp = act as ExecAction;
+                    if (temp.Path != taskBatPath)
                     {
-                        ExecAction temp = act as ExecAction;
-                        if (temp.Path != taskBatPath)
-                        {
-                            ts.RootFolder.DeleteTask("RunDS4Windows");
-                            break;
-                        }
+                        ts.RootFolder.DeleteTask("RunDS4Windows");
+                        break;
                     }
                 }
             }
         }
+    }
 
-        public static bool CanWriteStartEntry()
+    public static bool CanWriteStartEntry() =>
+        !new FileInfo(lnkpath).IsReadOnly;
+
+    public static void WriteTaskEntry()
+    {
+        DeleteTaskEntry();
+
+        // Create new version of task.bat file using current exe
+        // filename. Allow dynamic file
+        RefreshTaskBat();
+
+        TaskService ts = new TaskService();
+        TaskDefinition td = ts.NewTask();
+        td.Triggers.Add(new LogonTrigger());
+        string dir = Global.exedirpath;
+        td.Actions.Add(new ExecAction($@"{dir}\task.bat",
+            "",
+            dir));
+
+        td.Principal.RunLevel = TaskRunLevel.Highest;
+        td.Settings.StopIfGoingOnBatteries = false;
+        td.Settings.DisallowStartIfOnBatteries = false;
+        ts.RootFolder.RegisterTaskDefinition("RunDS4Windows", td);
+    }
+
+    public static void DeleteTaskEntry()
+    {
+        TaskService ts = new TaskService();
+        Task tasker = ts.FindTask("RunDS4Windows");
+        if (tasker != null)
         {
-            bool result = false;
-            if (!new FileInfo(lnkpath).IsReadOnly)
-            {
-                result = true;
-            }
+            ts.RootFolder.DeleteTask("RunDS4Windows");
+        }
+    }
 
-            return result;
+    public static bool CheckStartupExeLocation()
+    {
+        string lnkprogpath = ResolveShortcut(lnkpath);
+        return lnkprogpath != Global.exelocation;
+    }
+
+    public static void LaunchOldTask()
+    {
+        TaskService ts = new TaskService();
+        Task tasker = ts.FindTask("RunDS4Windows");
+        if (tasker != null)
+        {
+            tasker.Run("");
+        }
+    }
+
+    private static string ResolveShortcut(string filePath)
+    {
+        Type t = Type.GetTypeFromCLSID(new Guid("72C24DD5-D70A-438B-8A42-98424B88AFB8")); // Windows Script Host Shell Object
+        dynamic shell = Activator.CreateInstance(t);
+        string result;
+
+        try
+        {
+            var shortcut = shell.CreateShortcut(filePath);
+            result = shortcut.TargetPath;
+            Marshal.FinalReleaseComObject(shortcut);
+        }
+        catch (COMException)
+        {
+            // A COMException is thrown if the file is not a valid shortcut (.lnk) file 
+            result = null;
+        }
+        finally
+        {
+            Marshal.FinalReleaseComObject(shell);
         }
 
-        public static void WriteTaskEntry()
+        return result;
+    }
+
+    private static void RefreshTaskBat()
+    {
+        string dir = Global.exedirpath;
+        string path = $@"{dir}\task.bat";
+        FileStream fileStream = new FileStream(path, FileMode.Create, FileAccess.Write);
+        using (StreamWriter w = new StreamWriter(fileStream))
         {
-            DeleteTaskEntry();
-
-            // Create new version of task.bat file using current exe
-            // filename. Allow dynamic file
-            RefreshTaskBat();
-
-            TaskService ts = new TaskService();
-            TaskDefinition td = ts.NewTask();
-            td.Triggers.Add(new LogonTrigger());
-            string dir = DS4Windows.Global.exedirpath;
-            td.Actions.Add(new ExecAction($@"{dir}\task.bat",
-                "",
-                dir));
-
-            td.Principal.RunLevel = TaskRunLevel.Highest;
-            td.Settings.StopIfGoingOnBatteries = false;
-            td.Settings.DisallowStartIfOnBatteries = false;
-            ts.RootFolder.RegisterTaskDefinition("RunDS4Windows", td);
-        }
-
-        public static void DeleteTaskEntry()
-        {
-            TaskService ts = new TaskService();
-            Task tasker = ts.FindTask("RunDS4Windows");
-            if (tasker != null)
-            {
-                ts.RootFolder.DeleteTask("RunDS4Windows");
-            }
-        }
-
-        public static bool CheckStartupExeLocation()
-        {
-            string lnkprogpath = ResolveShortcut(lnkpath);
-            return lnkprogpath != DS4Windows.Global.exelocation;
-        }
-
-        public static void LaunchOldTask()
-        {
-            TaskService ts = new TaskService();
-            Task tasker = ts.FindTask("RunDS4Windows");
-            if (tasker != null)
-            {
-                tasker.Run("");
-            }
-        }
-
-        private static string ResolveShortcut(string filePath)
-        {
-            Type t = Type.GetTypeFromCLSID(new Guid("72C24DD5-D70A-438B-8A42-98424B88AFB8")); // Windows Script Host Shell Object
-            dynamic shell = Activator.CreateInstance(t);
-            string result;
-
-            try
-            {
-                var shortcut = shell.CreateShortcut(filePath);
-                result = shortcut.TargetPath;
-                Marshal.FinalReleaseComObject(shortcut);
-            }
-            catch (COMException)
-            {
-                // A COMException is thrown if the file is not a valid shortcut (.lnk) file 
-                result = null;
-            }
-            finally
-            {
-                Marshal.FinalReleaseComObject(shell);
-            }
-
-            return result;
-        }
-
-        private static void RefreshTaskBat()
-        {
-            string dir = DS4Windows.Global.exedirpath;
-            string path = $@"{dir}\task.bat";
-            FileStream fileStream = new FileStream(path, FileMode.Create, FileAccess.Write);
-            using (StreamWriter w = new StreamWriter(fileStream))
-            {
-                string temp = string.Empty;
-                w.WriteLine("@echo off"); // Turn off echo
-                w.WriteLine("SET mypath=\"%~dp0\"");
-                temp = $"cmd.exe /c start \"RunDS4Windows\" %mypath%\\{DS4Windows.Global.exeFileName} -m";
-                w.WriteLine(temp);
-                w.WriteLine("exit");
-            }
+            string temp = string.Empty;
+            w.WriteLine("@echo off"); // Turn off echo
+            w.WriteLine("SET mypath=\"%~dp0\"");
+            temp = $"cmd.exe /c start \"RunDS4Windows\" %mypath%\\{Global.exeFileName} -m";
+            w.WriteLine(temp);
+            w.WriteLine("exit");
         }
     }
 }

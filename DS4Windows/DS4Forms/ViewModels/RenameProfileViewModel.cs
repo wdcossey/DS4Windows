@@ -1,32 +1,25 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.IO;
-using DS4Windows;
+﻿using System.IO;
 
-namespace DS4WinWPF.DS4Forms.ViewModels
+namespace DS4WinWPF.DS4Forms.ViewModels;
+
+public class RenameProfileViewModel
 {
-    public class RenameProfileViewModel
+    private string profileName;
+    public string ProfileName
     {
-        private string profileName;
-        public string ProfileName
+        get => profileName;
+        set
         {
-            get => profileName;
-            set
-            {
-                profileName = value;
-                ProfileNameChanged?.Invoke(this, EventArgs.Empty);
-            }
+            profileName = value;
+            ProfileNameChanged?.Invoke(this, EventArgs.Empty);
         }
-        public event EventHandler ProfileNameChanged;
+    }
+    public event EventHandler ProfileNameChanged;
 
-        public bool ProfileFileExists()
-        {
-            string filePath = Path.Combine(Global.appdatapath,
-                "Profiles", $"{profileName}.xml");
-            return File.Exists(filePath);
-        }
+    public bool ProfileFileExists()
+    {
+        string filePath = Path.Combine(Global.appdatapath,
+            "Profiles", $"{profileName}.xml");
+        return File.Exists(filePath);
     }
 }

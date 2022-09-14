@@ -1,37 +1,36 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 
-namespace DS4WinWPF
+namespace DS4WinWPF;
+
+public class LogWriter
 {
-    public class LogWriter
+    private string filename;
+    private List<LogItem> logCol;
+
+    public LogWriter(string filename, List<LogItem> col)
     {
-        private string filename;
-        private List<LogItem> logCol;
+        this.filename = filename;
+        logCol = col;
+    }
 
-        public LogWriter(string filename, List<LogItem> col)
+    public void Process()
+    {
+        List<string> outputLines = new List<string>();
+        foreach(LogItem item in logCol)
         {
-            this.filename = filename;
-            logCol = col;
+            outputLines.Add($"{item.Datetime}: {item.Message}");
         }
 
-        public void Process()
+        try
         {
-            List<string> outputLines = new List<string>();
-            foreach(LogItem item in logCol)
+            StreamWriter stream = new StreamWriter(filename);
+            foreach(string line in outputLines)
             {
-                outputLines.Add($"{item.Datetime}: {item.Message}");
+                stream.WriteLine(line);
             }
-
-            try
-            {
-                StreamWriter stream = new StreamWriter(filename);
-                foreach(string line in outputLines)
-                {
-                    stream.WriteLine(line);
-                }
-                stream.Close();
-            }
-            catch { }
+            stream.Close();
         }
+        catch { }
     }
 }
