@@ -14,8 +14,7 @@ namespace DS4Windows
 
         public event ReceivedOutBufferHandler ReceivedOutBuffer;
 
-        public Dictionary<int, ReceivedOutBufferHandler> outBufferFeedbacksDict =
-            new Dictionary<int, ReceivedOutBufferHandler>();
+        public Dictionary<int, ReceivedOutBufferHandler> outBufferFeedbacksDict = new();
         private CancellationTokenSource tokenSource;
 
         public DS4OutDeviceExt(ViGEmClient client) : base(client)

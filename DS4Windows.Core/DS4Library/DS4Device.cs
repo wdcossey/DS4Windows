@@ -40,6 +40,8 @@ public class DS4Device
     internal const int BATTERY_MAX_USB = 11;
     public const string BLANK_SERIAL = "00:00:00:00:00:00";
     public const byte SERIAL_FEATURE_ID = 18;
+    private const string SONYWA_AUDIO_SEARCHNAME = "DUALSHOCK®4 USB Wireless Adaptor";
+    private const string RAIJU_TE_AUDIO_SEARCHNAME = "Razer Raiju Tournament Edition Wired";
     protected HidDevice hDevice;
     protected string Mac;
     protected DS4State cState = new DS4State();
@@ -518,7 +520,13 @@ public class DS4Device
         {
             hDevice.OpenFileStream(outputReport.Length);
         }
-
+        
+        if (conType == ConnectionType.BT &&
+            !featureSet.HasFlag(VidPidFeatureSet.NoOutputData) &&
+            !featureSet.HasFlag(VidPidFeatureSet.OnlyOutputData0x05))
+        {
+            CheckOutputReportTypes();
+        }
         // Temporarily disable this check as it does not seem to help
         // detect fake DS4 controllers
         //if (conType == ConnectionType.BT &&
@@ -1723,6 +1731,11 @@ public class DS4Device
     public void SetLightbarState(ref DS4LightbarState lightState)
     {
         currentHap.LightbarState = lightState;
+    }
+
+    public ref DS4LightbarState GetLightbarStateRef()
+    {
+        return ref currentHap.LightbarState;
     }
 
     public void SetRumbleState(ref DS4ForceFeedbackState rumbleState)

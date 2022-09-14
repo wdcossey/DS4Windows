@@ -361,7 +361,7 @@ public partial class AutoProfiles : UserControl
     {
         if (exePath.Substring((exePath.Length)-4, 4) == ".exe") //Filter out autoprofiles that do not lead to EXEs.
         {
-            App.rootHub.CheckHidHidePresence(exePath, addExe);
+            Program.rootHub.CheckHidHidePresence(exePath, addExe);
         }
     }
 }

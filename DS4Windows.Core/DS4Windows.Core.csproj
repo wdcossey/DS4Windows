@@ -69,6 +69,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Options" Version="6.0.0" />
+    <PackageReference Include="Nefarius.Utilities.DeviceManagement" Version="3.0.165-pre" />
   </ItemGroup>
 
   <ItemGroup>

@@ -9,6 +9,7 @@ using DS4WinWPF.DS4Control;
 using DS4Windows.DS4Control;
 using System.Windows.Threading;
 using Microsoft.Extensions.Options;
+using Nefarius.Utilities.DeviceManagement.PnP;
 
 namespace DS4Windows;
 
@@ -75,7 +76,7 @@ public interface IControlService
 
     string TouchpadSlide(int ind);
 
-    void CheckHidHidePresence();
+    void CheckHidHidePresence(string exePath = "", bool addExe = true); // Default value for D4W Startup
     void LoadPermanentSlotsConfig();
     void UpdateHidHideAttributes();
     void UpdateHidHiddenAttributes();
@@ -330,7 +331,6 @@ public class ControlService : IControlService
         deviceOptions = Global.DeviceOptions;
 
         DS4Devices.RequestElevation += DS4Devices_RequestElevation;
-        DS4Devices.checkVirtualFunc = CheckForVirtualDevice;
         DS4Devices.PrepareDS4Init = PrepareDS4DeviceInit;
         DS4Devices.PostDS4Init = PostDS4DeviceInit;
         DS4Devices.PreparePendingDevice = CheckForSupportedDevice;
@@ -589,22 +589,8 @@ public class ControlService : IControlService
         // Does nothing now
     }
 
-    public CheckVirtualInfo CheckForVirtualDevice(string deviceInstanceId)
-    {
-        string temp = Global.GetDeviceProperty(deviceInstanceId,
-            SetupApi.DEVPKEY_Device_UINumber);
-
-        CheckVirtualInfo info = new CheckVirtualInfo()
-        {
-            PropertyValue = temp,
-            DeviceInstanceId = deviceInstanceId,
-        };
-        return info;
-    }
-
     public void ShutDown()
     {
-        DS4Devices.checkVirtualFunc = null;
         outputslotMan.ShutDown();
         OutputSlotPersist.WriteConfig(outputslotMan);
 
@@ -642,7 +628,7 @@ public class ControlService : IControlService
         catch { }
     }
 
-    public void CheckHidHidePresence()
+    public void CheckHidHidePresence(string exePath = "", bool addExe = true) // Default value for D4W Startup
     {
         if (Global.hidHideInstalled)
         {
@@ -654,11 +640,15 @@ public class ControlService : IControlService
                     return;
                 }
 
+                // Catch Blank Values and initialize for Startup. Also catches empty Values.
+                // Also Catches Empty values in auto-profiler, and defaults to trying to re-add D4W. Will fail harmlessly later.
+                if (exePath == "") { exePath = Global.exelocation; addExe = true; } 
+
                 List<string> dosPaths = hidHideDevice.GetWhitelist();
 
                 int maxPathCheckLength = 512;
                 StringBuilder sb = new StringBuilder(maxPathCheckLength);
-                string driveLetter = Path.GetPathRoot(Global.exelocation).Replace("\\", "");
+                string driveLetter = Path.GetPathRoot(exePath)!.Replace("\\", "");
                 uint _ = Kernel32.QueryDosDevice(driveLetter, sb, maxPathCheckLength);
                 //int error = Marshal.GetLastWin32Error();
 
@@ -669,15 +659,21 @@ public class ControlService : IControlService
                     dosDrivePath = dosDrivePath.Remove(0, 4);
                 }
 
-                string partial = Global.exelocation.Replace(driveLetter, "");
+                string partial = exePath.Replace(driveLetter, "");
                 // Need to trim starting '\\' from path2 or Path.Combine will
                 // treat it as an absolute path and only return path2
                 string realPath = Path.Combine(dosDrivePath, partial.TrimStart('\\'));
                 bool exists = dosPaths.Contains(realPath);
-                if (!exists)
+                if (!exists && addExe)
                 {
-                    LogDebug("DS4Windows not found in HidHide whitelist. Adding DS4Windows to list");
+                    LogDebug("Exe not found in HidHide whitelist. Adding Exe to list");
                     dosPaths.Add(realPath);
+                    hidHideDevice.SetWhitelist(dosPaths);
+                }
+                if (exists && !addExe)
+                {
+                    LogDebug("Exe found in HidHide whitelist. Removing Exe from list");
+                    dosPaths.Remove(realPath);
                     hidHideDevice.SetWhitelist(dosPaths);
                 }
             }
@@ -730,7 +726,8 @@ public class ControlService : IControlService
         bool result = false;
         if (dev != null && hidDeviceHidingEnabled)
         {
-            string deviceInstanceId = _ds4Devices.DevicePathToInstanceId(dev.HidDevice.DevicePath);
+            
+            string deviceInstanceId = PnPDevice.GetInstanceIdFromInterfaceId(dev.HidDevice.DevicePath);
             if (Global.hidHideInstalled)
             {
                 result = Global.CheckHidHideAffectedStatus(deviceInstanceId,
@@ -1062,6 +1059,130 @@ public class ControlService : IControlService
             tempXbox.cont.FeedbackReceived += p;
             tempXbox.forceFeedbacksDict.Add(index, p);
         }
+        else if (contType == OutContType.DS4)
+        {
+            DS4OutDevice tempDS4 = outDevice as DS4OutDevice;
+            if (tempDS4.CanUseAwaitOutputBuffer)
+            {
+                DS4OutDeviceExt.ReceivedOutBufferHandler processOutBuffAction = (DS4OutDeviceExt sender, byte[] reportData) =>
+                {
+                    /*
+                    //DS4OutputBufferData outputData = new DS4OutputBufferData();
+                    DS4OutputBufferData outputData =
+                        DS4OutDeviceExtras.ConvertOutputBufferArrayToStruct(reportData);
+
+                    bool useRumble = false; bool useLight = false;
+                    byte flashOn = 0; byte flashOff = 0;
+                    DS4Color? color = null;
+
+                    //Trace.WriteLine(string.Join(" ", reportData));
+
+                    if ((outputData.featureFlags & DS4OutDevice.RUMBLE_FEATURE_FLAG) != 0)
+                    {
+                        useRumble = true;
+                        device.setRumble(outputData.rightFastRumble, outputData.leftSlowRumble);
+                        //SetDevRumble(device, devour[4], devour[5], devIndex);
+                    }
+
+                    if ((outputData.featureFlags & DS4OutDevice.LIGHTBAR_FEATURE_FLAG) != 0)
+                    {
+                        useLight = true;
+                        color = new DS4Color(outputData.lightbarRedColor,
+                            outputData.lightbarGreenColor,
+                            outputData.lightbarBlueColor);
+                    }
+                    else
+                    {
+                        color = device.LightBarColor;
+                    }
+
+                    if ((outputData.featureFlags & DS4OutDevice.FLASH_FEATURE_FLAG) != 0)
+                    {
+                        useLight = true;
+                        flashOn = outputData.flashOnDuration;
+                        flashOff = outputData.flashOffDuration;
+                    }
+                    else
+                    {
+                        ref DS4LightbarState currentLight =
+                            ref device.GetLightbarStateRef();
+
+                        flashOn = currentLight.LightBarFlashDurationOn;
+                        flashOff = currentLight.LightBarFlashDurationOff;
+                    }
+
+                    if (useLight)
+                    {
+                        DS4LightbarState lightState = new DS4LightbarState
+                        {
+                            LightBarColor = (DS4Color)color,
+                            LightBarFlashDurationOn = flashOn,
+                            LightBarFlashDurationOff = flashOff,
+                        };
+                        device.SetLightbarState(ref lightState);
+                    }
+                    //*/
+
+                    //*
+                    unchecked
+                    {
+                        bool useRumble = false; bool useLight = false;
+                        byte flashOn = 0; byte flashOff = 0;
+                        DS4Color? color = null;
+                        if ((reportData[1] & DS4OutDevice.RUMBLE_FEATURE_FLAG) != 0)
+                        {
+                            useRumble = true;
+                            device.SetRumble(reportData[4], reportData[5]);
+                            //SetDevRumble(device, devour[4], devour[5], devIndex);
+                        }
+
+                        if ((reportData[1] & DS4OutDevice.LIGHTBAR_FEATURE_FLAG) != 0)
+                        {
+                            useLight = true;
+                            color = new DS4Color(reportData[6],
+                                reportData[7],
+                                reportData[8]);
+                        }
+                        else
+                        {
+                            color = device.LightBarColor;
+                        }
+
+                        if ((reportData[1] & DS4OutDevice.FLASH_FEATURE_FLAG) != 0)
+                        {
+                            useLight = true;
+                            flashOn = reportData[9];
+                            flashOff = reportData[10];
+                        }
+                        else
+                        {
+                            ref DS4LightbarState currentLight =
+                                ref device.GetLightbarStateRef();
+
+                            flashOn = currentLight.LightBarFlashDurationOn;
+                            flashOff = currentLight.LightBarFlashDurationOff;
+                        }
+
+                        if (useLight)
+                        {
+                            DS4LightbarState lightState = new DS4LightbarState
+                            {
+                                LightBarColor = (DS4Color)color,
+                                LightBarFlashDurationOn = flashOn,
+                                LightBarFlashDurationOff = flashOff,
+                            };
+                            device.SetLightbarState(ref lightState);
+                        }
+                    }
+                    //*/
+                };
+
+                DS4OutDeviceExt tempDS4Ext = tempDS4 as DS4OutDeviceExt;
+                tempDS4Ext.ReceivedOutBuffer += processOutBuffAction;
+                tempDS4Ext.outBufferFeedbacksDict.TryAdd(index, processOutBuffAction);
+                tempDS4Ext.StartOutputBufferThread();
+            }
+        }
         //else if (contType == OutContType.DS4)
         //{
         //    DS4OutDevice tempDS4 = outDevice as DS4OutDevice;
@@ -1147,6 +1268,11 @@ public class ControlService : IControlService
             tempXbox.RemoveFeedback(inIdx);
             //tempXbox.cont.FeedbackReceived -= tempXbox.forceFeedbackCall;
             //tempXbox.forceFeedbackCall = null;
+        }
+        else if (contType == OutContType.DS4)
+        {
+            DS4OutDevice tempDS4 = outDevice as DS4OutDevice;
+            tempDS4.RemoveFeedback(inIdx);
         }
         //else if (contType == OutContType.DS4)
         //{
