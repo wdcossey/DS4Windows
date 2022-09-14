@@ -77,7 +77,7 @@
             }
             else if (OutputCont == OutputContChoice.DualShock4)
             {
-                Global.LoadDefaultMixedControlsProfile(idx, false, ControlService, false);
+                Global.LoadDefaultDS4MixedControlsProfile(idx, false, ControlService, false);
             }
         }
     }

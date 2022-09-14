@@ -61,6 +61,7 @@ public class DS4Devices : IDS4Devices
         new(SONY_VID, 0x09CC, "DS4 v.2", InputDeviceType.DS4),
         new(SONY_VID, 0x0CE6, "DualSense", InputDeviceType.DualSense, VidPidFeatureSet.DefaultDS4, DualSenseDevice.DetermineConnectionType),
         new(RAZER_VID, 0x1000, "Razer Raiju PS4"),
+        new(RAZER_VID, 0x1100, "Razer Raion Fightpad PS4", InputDeviceType.DS4, VidPidFeatureSet.NoGyroCalib),
         new(NACON_VID, 0x0D01, "Nacon Revol Pro v.1", InputDeviceType.DS4, VidPidFeatureSet.NoGyroCalib), // Nacon Revolution Pro v1 and v2 doesn't support DS4 gyro calibration routines
         new(NACON_VID, 0x0D02, "Nacon Revol Pro v.2", InputDeviceType.DS4, VidPidFeatureSet.NoGyroCalib),
         new(HORI_VID, 0x00EE, "Hori PS4 Mini", InputDeviceType.DS4, VidPidFeatureSet.NoOutputData | VidPidFeatureSet.NoBatteryReading | VidPidFeatureSet.NoGyroCalib),  // Hori PS4 Mini Wired Gamepad
