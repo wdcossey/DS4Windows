@@ -76,7 +76,7 @@ public interface IControlService
 
     string TouchpadSlide(int ind);
 
-    void CheckHidHidePresence(string exePath = "", bool addExe = true); // Default value for D4W Startup
+    void CheckHidHidePresence(string exePath = "", string exeName = "Autoprofile Exe", bool addExe = true); // Default value for D4W Startup
     void LoadPermanentSlotsConfig();
     void UpdateHidHideAttributes();
     void UpdateHidHiddenAttributes();
@@ -89,6 +89,8 @@ public interface IControlService
     public DS4State GetDS4StateMapped(int ind);
     public DS4State GetDS4StateTemp(int ind);
 
+    public void PreLoadReset(int ind);
+    
     // ReSharper restore InconsistentNaming    
 }
 
@@ -628,7 +630,7 @@ public class ControlService : IControlService
         catch { }
     }
 
-    public void CheckHidHidePresence(string exePath = "", bool addExe = true) // Default value for D4W Startup
+    public void CheckHidHidePresence(string exePath = "", string exeName = "Autoprofile Exe", bool addExe = true) // Default value for D4W Startup
     {
         if (Global.hidHideInstalled)
         {
@@ -642,7 +644,7 @@ public class ControlService : IControlService
 
                 // Catch Blank Values and initialize for Startup. Also catches empty Values.
                 // Also Catches Empty values in auto-profiler, and defaults to trying to re-add D4W. Will fail harmlessly later.
-                if (exePath == "") { exePath = Global.exelocation; addExe = true; } 
+                if (exePath == "") { exePath = Global.exelocation; exeName = "DS4Windows"; addExe = true; }
 
                 List<string> dosPaths = hidHideDevice.GetWhitelist();
 
@@ -666,13 +668,13 @@ public class ControlService : IControlService
                 bool exists = dosPaths.Contains(realPath);
                 if (!exists && addExe)
                 {
-                    LogDebug("Exe not found in HidHide whitelist. Adding Exe to list");
+                    LogDebug($"{exeName} not found in HidHide whitelist. Adding to list");
                     dosPaths.Add(realPath);
                     hidHideDevice.SetWhitelist(dosPaths);
                 }
                 if (exists && !addExe)
                 {
-                    LogDebug("Exe found in HidHide whitelist. Removing Exe from list");
+                    LogDebug($"{exeName} found in HidHide whitelist. Removing from list");
                     dosPaths.Remove(realPath);
                     hidHideDevice.SetWhitelist(dosPaths);
                 }
@@ -2006,6 +2008,7 @@ public class ControlService : IControlService
                 Global.linkedProfileCheck[index] = false;
             }
 
+            // Now attempt to load requested profile and settings
             profileLoaded = LoadProfile(index, false, this, false, false);
         }
 
@@ -2269,6 +2272,26 @@ public class ControlService : IControlService
         };
     }
 
+    /// <summary>
+    /// Perform Mapping property resetting as needed before loading profile settings
+    /// </summary>
+    /// <param name="device">Input device instance</param>
+    public void PreLoadReset(int ind)
+    {
+        //DS4Device inputDevice = DS4Controllers[ind];
+        //if (inputDevice == null)
+        //{
+        //    return;
+        //}
+
+        // Reset current flick stick progress from previous profile
+        Mapping.flickMappingData[ind].Reset();
+
+        // Reset delta accel processors for sticks
+        Mapping.deltaAccelProcessors[ind].LSProcessor.Reset();
+        Mapping.deltaAccelProcessors[ind].RSProcessor.Reset();
+    }
+    
     public void TouchPadOn(int ind, DS4Device device)
     {
         Mouse tPad = TouchPad[ind];

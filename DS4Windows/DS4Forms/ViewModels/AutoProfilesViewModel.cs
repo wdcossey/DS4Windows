@@ -79,14 +79,6 @@ public class AutoProfilesViewModel
             ProgramColl.Add(item);
             existingApps.Add(entry.Path);
         }
-        
-        public void AddExeToHIDHideWhenSaving(ProgramItem autoProf, bool addExe)
-        {
-            if (autoProf.Path.Substring((autoProf.Path.Length) - 4, 4) == ".exe") //Filter out autoprofiles that do not lead to EXEs.
-            {
-                App.rootHub.CheckHidHidePresence(autoProf.Path, autoProf.Filename, addExe);
-            }
-        }
     }
 
     public void RemoveUnchecked()
@@ -364,6 +356,14 @@ public class AutoProfilesViewModel
             itemMoved = false;
 
         return itemMoved;
+    }
+
+    public void AddExeToHIDHideWhenSaving(ProgramItem autoProf, bool addExe)
+    {
+        if (autoProf.Path.Substring((autoProf.Path.Length) - 4, 4) == ".exe") //Filter out autoprofiles that do not lead to EXEs.
+        {
+            Program.rootHub.CheckHidHidePresence(autoProf.Path, autoProf.FileName, addExe);
+        }
     }
 }
 

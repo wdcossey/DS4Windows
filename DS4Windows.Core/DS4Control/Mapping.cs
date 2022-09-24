@@ -2261,7 +2261,7 @@ namespace DS4Windows
                 {
                     DS4Device d = ctrl.DS4Controllers[device];
                     DS4State cRawState = d.getCurrentStateRef();
-                    cRawState.calculateStickAngles();
+                    cRawState.CalculateStickAngles();
 
                     double maxXValue = cState.RX >= 128.0 ? 255.0 : 0.0;
                     double maxYValue = cState.RY >= 128.0 ? 255.0 : 0.0;
