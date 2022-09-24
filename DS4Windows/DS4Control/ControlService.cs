@@ -538,7 +538,7 @@ namespace DS4Windows
             catch { }
         }
 
-        public void CheckHidHidePresence(string ExePath = "", bool AddExe = true) // Default value for D4W Startup
+        public void CheckHidHidePresence(string ExePath = "", string ExeName = "Autoprofile Exe", bool AddExe = true) // Default value for D4W Startup
         {
             if (Global.hidHideInstalled)
             {
@@ -551,7 +551,7 @@ namespace DS4Windows
                     }
                     // Catch Blank Values and initialize for Startup. Also catches empty Values.
                     // Also Catches Empty values in auto-profiler, and defaults to trying to re-add D4W. Will fail harmlessly later.
-                    if (ExePath == "") { ExePath = Global.exelocation; AddExe = true; } 
+                    if (ExePath == "") { ExePath = Global.exelocation; ExeName = "DS4Windows"; AddExe = true; } 
                     
                     List<string> dosPaths = hidHideDevice.GetWhitelist();
 
@@ -575,13 +575,13 @@ namespace DS4Windows
                     bool exists = dosPaths.Contains(realPath);
                     if (!exists && AddExe)
                     {
-                        LogDebug("Exe not found in HidHide whitelist. Adding Exe to list");
+                        LogDebug($"{ExeName} not found in HidHide whitelist. Adding to list");
                         dosPaths.Add(realPath);
                         hidHideDevice.SetWhitelist(dosPaths);
                     }
                     if (exists && !AddExe)
                     {
-                        LogDebug("Exe found in HidHide whitelist. Removing Exe from list");
+                        LogDebug($"{ExeName} found in HidHide whitelist. Removing from list");
                         dosPaths.Remove(realPath);
                         hidHideDevice.SetWhitelist(dosPaths);
                     }
@@ -1914,6 +1914,7 @@ namespace DS4Windows
                     Global.linkedProfileCheck[index] = false;
                 }
 
+                // Now attempt to load requested profile and settings
                 profileLoaded = LoadProfile(index, false, this, false, false);
             }
 
@@ -2040,9 +2041,6 @@ namespace DS4Windows
             device.setBTPollRate(getBTPollRate(ind));
             touchPad[ind].ResetTrackAccel(getTrackballFriction(ind));
             touchPad[ind].ResetToggleGyroModes();
-
-            // Reset current flick stick progress from previous profile
-            Mapping.flickMappingData[ind].Reset();
 
             Global.L2OutputSettings[ind].TrigEffectSettings.maxValue = (byte)(Math.Max(Global.L2ModInfo[ind].maxOutput, Global.L2ModInfo[ind].maxZone) / 100.0 * 255);
             Global.R2OutputSettings[ind].TrigEffectSettings.maxValue = (byte)(Math.Max(Global.R2ModInfo[ind].maxOutput, Global.R2ModInfo[ind].maxZone) / 100.0 * 255);
@@ -2176,6 +2174,26 @@ namespace DS4Windows
                 device.PrepareTriggerEffect(InputDevices.TriggerId.RightTrigger, Global.R2OutputSettings[tempIdx].TriggerEffect,
                     Global.R2OutputSettings[tempIdx].TrigEffectSettings);
             };
+        }
+
+        /// <summary>
+        /// Perform Mapping property resetting as needed before loading profile settings
+        /// </summary>
+        /// <param name="device">Input device instance</param>
+        public void PreLoadReset(int ind)
+        {
+            //DS4Device inputDevice = DS4Controllers[ind];
+            //if (inputDevice == null)
+            //{
+            //    return;
+            //}
+
+            // Reset current flick stick progress from previous profile
+            Mapping.flickMappingData[ind].Reset();
+
+            // Reset delta accel processors for sticks
+            Mapping.deltaAccelProcessors[ind].LSProcessor.Reset();
+            Mapping.deltaAccelProcessors[ind].RSProcessor.Reset();
         }
 
         public void TouchPadOn(int ind, DS4Device device)
