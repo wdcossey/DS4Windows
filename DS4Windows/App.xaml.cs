@@ -54,16 +54,9 @@ public partial class App : Application
         Host = Microsoft.Extensions.Hosting.Host.CreateDefaultBuilder()
             .ConfigureAppConfiguration(builder =>
             {
-                var osVersion = Environment.OSVersion.Version.Major switch
-                {
-                    >= 10 => 10,
-                    6 or > 6 and < 10 => 81,
-                    _ => 7
-                };
-
                 builder.Sources.Clear();
                 builder.AddJsonFile("appsettings.json", false, true);
-                builder.AddJsonFile($"appsettings.win{osVersion}-x{(Environment.Is64BitProcess ? 64 : 86)}.json", true, true);
+                builder.AddJsonFile($"appsettings.{RuntimeInformation.RuntimeIdentifier}.json", true, true);
                 builder.AddCommandLine(Environment.GetCommandLineArgs());
                 builder.AddEnvironmentVariables();
             })
