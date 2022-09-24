@@ -250,6 +250,39 @@ public class SlotDeviceEntry
     public event EventHandler UnplugRequest;
     int idx;
 
+    public bool DisplayXInputSlotNum
+    {
+        get
+        {
+            bool result = false;
+
+            result = outSlotDevice.CurrentType == OutContType.X360 &&
+                     (outSlotDevice.OutputDevice as Xbox360OutDevice).Features.HasFlag(Xbox360OutDevice.X360Features.XInputSlotNum);
+
+            return result;
+        }
+    }
+
+
+    public int XInputSlotNum
+    {
+        get
+        {
+            int result = -1;
+            if (outSlotDevice.CurrentType == OutContType.X360)
+            {
+                result = (outSlotDevice.OutputDevice as Xbox360OutDevice).XinputSlotNum;
+                result = result >= 0 ? result + 1 : result;
+            }
+
+            return result;
+        }
+
+    }
+
+    public event EventHandler DisplayXInputSlotNumChanged;
+    public event EventHandler XInputSlotNumChanged;
+    
     public SlotDeviceEntry(OutSlotDevice outSlotDevice, int idx)
     {
         this.outSlotDevice = outSlotDevice;
@@ -380,6 +413,8 @@ public class SlotDeviceEntry
         CurrentTypeChanged?.Invoke(this, EventArgs.Empty);
         DesiredTypeChanged?.Invoke(this, EventArgs.Empty);
         BoundInputChanged?.Invoke(this, EventArgs.Empty);
+        XInputSlotNumChanged?.Invoke(this, EventArgs.Empty);
+        DisplayXInputSlotNumChanged?.Invoke(this, EventArgs.Empty);
         Dirty = false;
     }
 

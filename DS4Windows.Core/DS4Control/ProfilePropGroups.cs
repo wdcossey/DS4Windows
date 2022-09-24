@@ -1,4 +1,5 @@
-﻿using Sensorit.Base;
+using DS4WinWPF.DS4Control;
+using Sensorit.Base;
 
 namespace DS4Windows
 {
@@ -807,8 +808,11 @@ namespace DS4Windows
 
     public class StickControlSettings
     {
+        public DeltaAccelSettings deltaAccelSettings = new DeltaAccelSettings();
+
         public void Reset()
         {
+            deltaAccelSettings.Reset();
         }
     }
 
