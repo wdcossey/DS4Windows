@@ -2283,7 +2283,12 @@ public class ControlService : IControlService
         //{
         //    return;
         //}
-
+        // Skip running for test profile with no mapping data
+        if (ind >= Global.TEST_PROFILE_INDEX)
+        {
+            return;
+        }
+        
         // Reset current flick stick progress from previous profile
         Mapping.flickMappingData[ind].Reset();
 
